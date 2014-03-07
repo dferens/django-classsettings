@@ -38,6 +38,13 @@ class SettingsTestCase(InjectorTestCase):
 
         self.assertEqual(globals()['public_setting'], 2)
 
+    def test_inheritance(self):
+        class SuperSettings(Settings):
+            def public_super(self): return 1
+
+        class SubSettings(SuperSettings):
+            def public_sub(self): return 2
+
 
 class ConfigTestCase(InjectorTestCase):
 

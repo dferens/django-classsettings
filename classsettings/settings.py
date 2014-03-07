@@ -3,9 +3,6 @@ import importlib
 from operator import itemgetter
 
 
-__all__ = ('Settings', 'Config')
-
-
 def inspect_class(cls):
     cls._instance = instance = cls()
     module = importlib.import_module(cls.__module__)
@@ -27,13 +24,14 @@ class ConfigMeta(type):
 
     def __init__(cls, cls_name, base_classes, params):
         public_members, module = inspect_class(cls)
-        result_config = dict((name, value()) for (name, value) in public_members)
-        setattr(module, cls_name, result_config)
+        result = dict((name, value()) for (name, value) in public_members)
+        setattr(module, cls_name, result)
 
 
 class Settings(object):
     """
-    Calls each public method of class and injects it's value into it's module scope.
+    Calls each public method of class and injects it's value into it's
+    module's scope.
     """
     __metaclass__ = SettingsMeta
 
