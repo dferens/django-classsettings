@@ -3,7 +3,6 @@ import unittest
 
 from django.core.exceptions import ImproperlyConfigured
 
-# from classsettings import settings, from_env, utils
 from classsettings import Settings, Config, from_env, utils
 
 
