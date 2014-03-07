@@ -1,5 +1,6 @@
 import inspect
 import importlib
+from itertools import izip
 import functools
 import os
 from operator import itemgetter
@@ -9,39 +10,43 @@ from django.core.exceptions import ImproperlyConfigured
 from .utils import defaultargs
 
 
-@defaultargs
-def settings(to_dict=False):
+def inspect_class(cls):
+    cls._instance = instance = cls()
+    module = importlib.import_module(cls.__module__)
+    members = sorted(inspect.getmembers(instance, inspect.ismethod),
+                     key=itemgetter(0))
+    public_members = [m for m in members if not m[0].startswith('_')]
+    return public_members, module
+
+
+class SettingsMeta(type):
     """
-    Adds ability to define Django settings with classes.
-
-    With `to_dict` mode on, calls each public method of decorated class and
-    returns dictionary of it's results.
-    With `to_dict` mode off, calls each public method of decorated class and
-    injects it's values into it's module scope.
+    Calls each public method of class and injects it's value into it's module scope.
     """
-    def _convert_to_property(Class):
-        for name, method in _get_attributes(Class):
-            setattr(Class, name, property(method))
+    def __init__(cls, *args):
+        public_members, module = inspect_class(cls)
+        for member_name, member in public_members:
+            setattr(module, member_name, member())
 
-    def _get_attributes(ClassInstance):
-        members = sorted(inspect.getmembers(ClassInstance, inspect.ismethod),
-                         key=itemgetter(0))
-        return filter(lambda (name, member): not name.startswith('_'), members)
 
-    def attrs_injector(Class):
-        Class._instance = instance = Class()
-        module = importlib.import_module(Class.__module__)
-        for name, value in _get_attributes(instance):
-            setattr(module, name, value())
-        return Class
+class ConfigMeta(type):
+    """
+    Calls each public method of class, constructs dictionary with `name-result`
+    pairs and injects it into module scope.
+    """
+    def __init__(cls, cls_name, base_classes, params):
+        public_members, module = inspect_class(cls)
+        result_config = dict((name, value()) for (name, value) in public_members)
+        setattr(module, cls_name, result_config)
 
-    def dict_maker(Class):
-        Class._instance = instance = Class()
-        result = dict(_get_attributes(instance))
-        for key in result: result[key] = result[key]()
-        return result
 
-    return dict_maker if to_dict else attrs_injector
+class Settings(object):
+
+    __metaclass__ = SettingsMeta
+
+
+class Config(object):
+    __metaclass__ = ConfigMeta
 
 
 @defaultargs

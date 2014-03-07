@@ -3,10 +3,9 @@ django-classsettings
 
 Adds ability to define Django settings with classes like this::
 
-  from classsettings import settings
+  from classsettings import Settings
   
-  @settings
-  class Static(object):
+  class Static(Settings):
       def STATIC_URL(self): return '/static/'
 
   # Transforms into

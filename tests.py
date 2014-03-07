@@ -3,69 +3,72 @@ import unittest
 
 from django.core.exceptions import ImproperlyConfigured
 
-from classsettings import settings, from_env, utils
+# from classsettings import settings, from_env, utils
+from classsettings import Settings, Config, from_env, utils
 
 
-class SettingsTestCase(unittest.TestCase):
+class InjectorTestCase(unittest.TestCase):
 
     def setUp(self):
-        self._old_globals = globals()
+        self._old_globals = dict(globals())
 
     def tearDown(self):
-        new_globals = globals()
-        for key in new_globals:
-            if key not in self._old_globals:
-                del new_globals[key]
+        to_delete = [k for k in globals() if k not in self._old_globals]
+        map(lambda k: globals().pop(k), to_delete)
 
-    def test_public(self):
+
+class SettingsTestCase(InjectorTestCase):
+
+    def test_fields(self):
         old_module_vars = set(globals())
-        self.assertNotIn('setting_name', old_module_vars)
 
-        @settings()
-        class MySettings(object):
-          def setting_name(self): return 1
+        class MySettings(Settings):
+            def public_method(self): return 1
+            def _private_method(self): return 2
+            some_field = 2
+            class some_class(object): pass
 
         new_module_vars = set(globals())
         self.assertEqual(new_module_vars - old_module_vars,
-                         set(('setting_name',)))
-
-    def test_not_importable(self):
-        old_module_vars = set(globals())
-        self.assertNotIn('_private_method', old_module_vars)
-
-        @settings()
-        class MySettings(object):
-          def _private_method(self): return 1
-          some_field = 2
-          class some_class(object): pass
-
-        new_module_vars = set(globals())
-        self.assertEqual(new_module_vars, old_module_vars)
+                         set(('public_method',)))
 
     def test_related(self):
-        old_module_vars = set(globals())
-        self.assertNotIn('_private_setting', old_module_vars)
-
-        @settings()
-        class MySettings(object):
+        class MySettings(Settings):
           def _private_setting(self): return 1
           def public_setting(self): return self._private_setting() * 2
 
-        new_module_globals = globals()
-        self.assertEqual(new_module_globals['public_setting'], 2)
+        self.assertEqual(globals()['public_setting'], 2)
 
-    def test_dict_mode(self):
+
+class ConfigTestCase(InjectorTestCase):
+
+    def test_injects(self):
         old_module_vars = set(globals())
-        self.assertNotIn('setting_name', old_module_vars)
+        self.assertNotIn('MyConfig', old_module_vars)
 
-        @settings(to_dict=True)
-        class MySettings(object):
-          def setting_name(self): return 1
+        class MyConfig(Config): pass
 
-        new_module_globals = globals()
-        self.assertEqual(set(new_module_globals) - old_module_vars,
-                         set(('MySettings',)))
-        self.assertEqual(new_module_globals['MySettings'], {'setting_name': 1})
+        new_module_vars = set(globals())
+        self.assertEqual(new_module_vars - old_module_vars,
+                         set(('MyConfig',)))
+        self.assertEqual(globals()['MyConfig'], dict())
+
+    def test_fields(self):
+        class MyConfig(Config):
+           def public_method(self): return 1
+           def _private_method(self): return 2
+           some_field = 2
+           class some_class(object): pass
+
+        result_dict = globals()['MyConfig']
+        self.assertEqual(result_dict, {'public_method': 1})
+
+    def test_related(self):
+        class MyConfig(Config):
+           def public_setting(self): return self._private_setting() * 2
+           def _private_setting(self): return 1
+
+        self.assertEqual(globals()['MyConfig'], {'public_setting': 2})
 
 
 class FromEnvTestCase(unittest.TestCase):
