@@ -12,14 +12,15 @@ class InjectorTestCase(unittest.TestCase):
         self._old_globals = dict(globals())
 
     def tearDown(self):
-        to_delete = [k for k in globals() if k not in self._old_globals]
-        map(lambda k: globals().pop(k), to_delete)
+        for k in  [k for k in globals() if k not in self._old_globals]:
+            globals().pop(k)
 
 
 class SettingsTestCase(InjectorTestCase):
 
     def test_fields(self):
         old_module_vars = set(globals())
+        self.assertFalse('public_method' in old_module_vars)
 
         class MySettings(Settings):
             def public_method(self): return 1
@@ -39,18 +40,27 @@ class SettingsTestCase(InjectorTestCase):
         self.assertEqual(globals()['public_setting'], 2)
 
     def test_inheritance(self):
+        old_module_vars = set(globals())
+        self.assertFalse('public_super' in old_module_vars or
+                         'public_sub' in old_module_vars)
+
         class SuperSettings(Settings):
             def public_super(self): return 1
 
         class SubSettings(SuperSettings):
             def public_sub(self): return 2
 
+        self.assertEqual(set(globals()) - old_module_vars,
+                         set(('public_sub', 'public_super')))
+        self.assertEqual(globals()['public_super'], 1)
+        self.assertEqual(globals()['public_sub'], 2)
+
 
 class ConfigTestCase(InjectorTestCase):
 
     def test_injects(self):
         old_module_vars = set(globals())
-        self.assertNotIn('MyConfig', old_module_vars)
+        self.assertFalse('MyConfig' in old_module_vars)
 
         class MyConfig(Config): pass
 
@@ -76,6 +86,24 @@ class ConfigTestCase(InjectorTestCase):
 
         self.assertEqual(globals()['MyConfig'], {'public_setting': 2})
 
+    def test_inheritance(self):
+        old_module_vars = set(globals())
+        self.assertFalse('SuperConfig' in old_module_vars or
+                         'SubConfig' in old_module_vars)
+
+        class SuperConfig(Config):
+            def public_super(self): return 1
+
+        class SubConfig(SuperConfig):
+            def public_sub(self): return 2
+
+        self.assertEqual(set(globals()) - old_module_vars,
+                         set(('SuperConfig', 'SubConfig')))
+        self.assertEqual(globals()['SuperConfig'],
+                         {'public_super': 1})
+        self.assertEqual(globals()['SubConfig'],
+                         {'public_super': 1, 'public_sub': 2})
+
 
 class FromEnvTestCase(unittest.TestCase):
 
@@ -83,10 +111,11 @@ class FromEnvTestCase(unittest.TestCase):
         self._old_environ = dict(os.environ)
 
     def tearDown(self):
-        to_delete = [k for k in os.environ if k not in self._old_environ]
-        map(os.environ.pop, to_delete)
+        for key in [k for k in os.environ if k not in self._old_environ]:
+            os.environ.pop(key)
 
     def test_has_default(self):
+        self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
         @from_env(key='CLASSSETTINGS_ENV')
         def getter(): return 'default'
 
@@ -95,6 +124,7 @@ class FromEnvTestCase(unittest.TestCase):
         self.assertEqual(getter(), 'value')
 
     def test_no_default(self):
+        self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
         @from_env(key='CLASSSETTINGS_ENV')
         def getter(): pass
 

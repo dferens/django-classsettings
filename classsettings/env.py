@@ -19,7 +19,7 @@ def from_env(key=None):
         def decorated(*args, **kwargs):
             try:
                 return get_env_setting(key or func.__name__)
-            except ImproperlyConfigured, e:
+            except ImproperlyConfigured as e:
                 default = func(*args, **kwargs)
                 if default is not None: return default
                 raise e

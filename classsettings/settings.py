@@ -1,6 +1,8 @@
 import inspect
-import importlib
+import sys
 from operator import itemgetter
+
+from django.utils import six, importlib
 
 
 def inspect_class(cls):
@@ -14,7 +16,7 @@ def inspect_class(cls):
 
 class SettingsMeta(type):
 
-    def __init__(cls, *args):
+    def __init__(cls, name, bases, attrs):
         public_members, module = inspect_class(cls)
         for member_name, member in public_members:
             setattr(module, member_name, member())
@@ -22,23 +24,21 @@ class SettingsMeta(type):
 
 class ConfigMeta(type):
 
-    def __init__(cls, cls_name, base_classes, params):
+    def __init__(cls, name, bases, attrs):
         public_members, module = inspect_class(cls)
         result = dict((name, value()) for (name, value) in public_members)
-        setattr(module, cls_name, result)
+        setattr(module, name, result)
 
 
-class Settings(object):
+class Settings(six.with_metaclass(SettingsMeta)):
     """
     Calls each public method of class and injects it's value into it's
     module's scope.
     """
-    __metaclass__ = SettingsMeta
 
 
-class Config(object):
+class Config(six.with_metaclass(ConfigMeta)):
     """
     Calls each public method of class, constructs dictionary with `name-result`
     pairs and injects it into module scope.
     """
-    __metaclass__ = ConfigMeta
