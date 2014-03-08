@@ -67,7 +67,7 @@ class ConfigTestCase(InjectorTestCase):
         new_module_vars = set(globals())
         self.assertEqual(new_module_vars - old_module_vars,
                          set(('MyConfig',)))
-        self.assertEqual(globals()['MyConfig'], dict())
+        self.assertTrue(globals()['MyConfig'] == MyConfig == dict())
 
     def test_fields(self):
         class MyConfig(Config):
@@ -89,20 +89,22 @@ class ConfigTestCase(InjectorTestCase):
     def test_inheritance(self):
         old_module_vars = set(globals())
         self.assertFalse('SuperConfig' in old_module_vars or
-                         'SubConfig' in old_module_vars)
+                         'Sub1Config' in old_module_vars)
 
         class SuperConfig(Config):
             def public_super(self): return 1
 
-        class SubConfig(SuperConfig):
-            def public_sub(self): return 2
+        class Sub1Config(SuperConfig):
+            def public_sub(self): return 2 * self.public_super()
+
+        class Sub2Config(Sub1Config):
+            def public_sub2(self): return 2 * self.public_sub()
 
         self.assertEqual(set(globals()) - old_module_vars,
-                         set(('SuperConfig', 'SubConfig')))
-        self.assertEqual(globals()['SuperConfig'],
-                         {'public_super': 1})
-        self.assertEqual(globals()['SubConfig'],
-                         {'public_super': 1, 'public_sub': 2})
+                         set(('SuperConfig', 'Sub1Config', 'Sub2Config')))
+        self.assertEqual(SuperConfig, dict(public_super=1))
+        self.assertEqual(Sub1Config,  dict(public_super=1, public_sub=2))
+        self.assertEqual(Sub2Config,  dict(public_super=1, public_sub=2, public_sub2=4))
 
 
 class FromEnvTestCase(unittest.TestCase):

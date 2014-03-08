@@ -24,10 +24,45 @@ class SettingsMeta(type):
 
 class ConfigMeta(type):
 
-    def __init__(cls, name, bases, attrs):
-        public_members, module = inspect_class(cls)
-        result = dict((name, value()) for (name, value) in public_members)
+    def __new__(cls, name, bases, attrs):
+        Class = super(ConfigMeta, cls).__new__(cls, name, bases, attrs)
+
+        if name == 'NewBase':
+            return Class
+
+        public_members, module = inspect_class(Class)
+        variables = ((k, val()) for (k, val) in public_members)
+        result = ConfigResult(variables, Class)
         setattr(module, name, result)
+        return result
+
+
+class ConfigResult(dict):
+    """
+    Dict-like object which adds inheritance support.
+    """
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 2:
+            # Used to create dict object
+            return super(ConfigResult, cls).__new__(cls, *args, **kwargs)
+        else:
+            # Used as superclass
+            name, bases, attrs = args
+            bases = tuple(b.ConfigClass for b in bases if isinstance(b, ConfigResult))
+            return ConfigMeta(name, bases, attrs)
+
+    def __init__(self, *args, **kwargs):
+        if len(args) == 2:
+            # Is used as dict instance
+            dict_arg, self._ConfigClass = args
+            super(ConfigResult, self).__init__(dict_arg, **kwargs)
+        else:
+            # Is used as class
+            pass
+
+    @property
+    def ConfigClass(self):
+        return self._ConfigClass
 
 
 class Settings(six.with_metaclass(SettingsMeta)):
@@ -40,5 +75,5 @@ class Settings(six.with_metaclass(SettingsMeta)):
 class Config(six.with_metaclass(ConfigMeta)):
     """
     Calls each public method of class, constructs dictionary with `name-result`
-    pairs and injects it into module scope.
+    pairs and replaces class with it.
     """
