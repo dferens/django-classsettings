@@ -7,22 +7,26 @@ from .utils import defaultargs
 
 
 @defaultargs
-def from_env(key=None):
+def from_env(key=None, through=None):
     """
     Gets environment variable by given key.
-    If key is not given, uses decorated function's name.
     If key is not present within environ, calls given function and raises
     :class:`ImproperlyConfigured` if it returns `None`.
+
+    :param key: env. variable name, defaults to function's name
+    :param through: callable should be applied to result
     """
     def decorator(func):
         @functools.wraps(func)
         def decorated(*args, **kwargs):
             try:
-                return get_env_setting(key or func.__name__)
+                value = get_env_setting(key or func.__name__)
             except ImproperlyConfigured as e:
-                default = func(*args, **kwargs)
-                if default is not None: return default
-                raise e
+                value = func(*args, **kwargs)
+                if value is None:
+                    raise e
+
+            return through(value) if through else value
 
         return decorated
     return decorator

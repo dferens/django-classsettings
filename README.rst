@@ -85,4 +85,8 @@ Some decorators may be found usefull:
 
         # Will look for specified key
         @from_env(key='CUSTOM_ENV_VAR_NAME')
-        def VAR_NAME(self): pass
+        def variable(self): pass
+
+        # Will apply `through` callable to result
+        @from_env(through=dj_database_url.parse)
+        def DATABASE_URL(self): return 'sqlite://'

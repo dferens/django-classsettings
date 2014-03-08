@@ -118,6 +118,7 @@ class FromEnvTestCase(unittest.TestCase):
 
     def test_has_default(self):
         self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
+
         @from_env(key='CLASSSETTINGS_ENV')
         def getter(): return 'default'
 
@@ -127,12 +128,34 @@ class FromEnvTestCase(unittest.TestCase):
 
     def test_no_default(self):
         self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
+
         @from_env(key='CLASSSETTINGS_ENV')
         def getter(): pass
 
         self.assertRaises(ImproperlyConfigured, getter)
         os.environ['CLASSSETTINGS_ENV'] = 'value'
         self.assertEqual(getter(), 'value')
+
+    def test_through_with_env(self):
+        self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
+
+        filter_func = lambda val: val.upper()
+
+        @from_env(key='CLASSSETTINGS_ENV', through=filter_func)
+        def getter(): pass
+
+        os.environ['CLASSSETTINGS_ENV'] = 'value'
+        self.assertEqual(getter(), 'VALUE')
+
+    def test_through_with_default(self):
+        self.assertEqual(os.environ.get('CLASSSETTINGS_ENV'), None)
+
+        filter_func = lambda val: val.upper()
+
+        @from_env(key='CLASSSETTINGS_ENV', through=filter_func)
+        def getter(): return 'default'
+
+        self.assertEqual(getter(), 'DEFAULT')
 
 
 class UtilsTestCase(unittest.TestCase):
