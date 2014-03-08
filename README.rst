@@ -4,6 +4,9 @@ django-classsettings
 .. image:: https://travis-ci.org/dferens/django-classsettings.png?branch=master
     :target: https://travis-ci.org/dferens/django-classsettings
 
+.. image:: https://coveralls.io/repos/dferens/django-classsettings/badge.png?branch=master
+    :target: https://coveralls.io/r/dferens/django-classsettings?branch=master
+
 Adds ability to define Django settings with classes.
 
 As many text editors and IDEs indexes code symbols, with such approach you can
