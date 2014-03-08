@@ -1,3 +1,4 @@
+====================
 django-classsettings
 ====================
 
@@ -13,7 +14,7 @@ As many text editors and IDEs indexes code symbols, with such approach you can
 easily navigate to any group and any line of your settings file.
 
 Settings class
---------
+--------------
 
 Exports defined variables into module's scope:
 
