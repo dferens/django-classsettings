@@ -10,4 +10,7 @@ env:
   - DJANGO_VERSION=1.6.1
 install:
   - pip install Django==$DJANGO_VERSION
-script: make test
+  - pip install coveralls
+script: coverage run tests.py
+after_success:
+    coveralls

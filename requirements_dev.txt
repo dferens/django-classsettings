@@ -4,3 +4,4 @@ Django
 # Testing
 coverage
 flake8
+tox
