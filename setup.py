@@ -1,10 +1,9 @@
 from setuptools import setup, find_packages
 
-import classsettings
 
 setup(
     name = 'django-classsettings',
-    version = classsettings.__version__,
+    version = '1.0.1',
     author='Dmitriy Ferens',
     author_email='ferensdima@gmail.com',
     description = 'Adds ability to define Django settings with classes'
