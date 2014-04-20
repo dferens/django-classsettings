@@ -8,18 +8,22 @@ from django.utils import six, importlib
 def inspect_class(cls):
     cls._instance = instance = cls()
     module = importlib.import_module(cls.__module__)
-    members = sorted(inspect.getmembers(instance, inspect.ismethod),
-                     key=itemgetter(0))
-    public_members = [m for m in members if not m[0].startswith('_')]
-    return public_members, module
+    public_attributes = []
+    for attr_name in dir(instance):
+        if not attr_name.startswith('_'):
+            value = getattr(instance, attr_name)
+            value = value() if inspect.ismethod(value) else value
+            public_attributes.append((attr_name, value))
+
+    return public_attributes, module
 
 
 class SettingsMeta(type):
 
     def __init__(cls, name, bases, attrs):
-        public_members, module = inspect_class(cls)
-        for member_name, member in public_members:
-            setattr(module, member_name, member())
+        public_attrs, module = inspect_class(cls)
+        for attr_name, value in public_attrs:
+            setattr(module, attr_name, value)
 
 
 class ConfigMeta(type):
@@ -30,9 +34,8 @@ class ConfigMeta(type):
         if name == 'NewBase':
             return Class
 
-        public_members, module = inspect_class(Class)
-        variables = ((k, val()) for (k, val) in public_members)
-        result = ConfigResult(variables, Class)
+        public_attributes, module = inspect_class(Class)
+        result = ConfigResult(public_attributes, Class)
         setattr(module, name, result)
         return result
 

@@ -8,7 +8,7 @@ django-classsettings
 .. image:: https://coveralls.io/repos/dferens/django-classsettings/badge.png?branch=master
     :target: https://coveralls.io/r/dferens/django-classsettings?branch=master
 
-Adds ability to define Django settings with classes.
+Adds ability to group Django settings with classes.
 
 As many text editors and IDEs indexes code symbols, with such approach you can
 easily navigate to any group and any line of your settings file.
@@ -16,33 +16,32 @@ easily navigate to any group and any line of your settings file.
 Settings class
 --------------
 
-Exports defined variables into module's scope:
-
 .. code-block:: python
 
-    from classsettings import Settings
-    
-    class Administration(Settings):
-        def ADMINS(self): return (
-            ('Your Name', 'your_email@example.com'),
+    class Apps(Settings):
+        def DJANGO_APPS(self): return (
+            'django.contrib.auth',
+             ...
         )
-        def DEBUG(self): return False
-        def TEMPLATE_DEBUG(self): return self.DEBUG()
+        def THIRD_PARTY_APPS(self): return (
+            'rest_framework',
+            'south',
+        )
+        def OWN_APPS(self): return (
+            'app1',
+            'app2',
+        )
+        def INSTALLED_APPS(self):
+            return self.DJANGO_APPS() + self.THIRD_PARTY_APPS() + self.OWN_APPS()
 
-Will result in
+With **Sublime Text 3** press :code:`Cmd+Shift+R` and type "THIRD".
+Same thing could be done with *TEMPLATE_CONTEXT_PROCESSORS*, *MIDDLEWARE_CLASSES* etc.
 
-.. code-block:: python
-
-    ADMINS = (
-        ('Your Name', 'your_email@example.com'),
-    )
-    DEBUG = False
-    TEMPLATE_DEBUG = False
 
 Config class
 ------------
 
-Injects dictionary if variables into module's scope:
+Injects dictionary of variables into module's scope:
 
 .. code-block:: python
 
@@ -52,6 +51,7 @@ Injects dictionary if variables into module's scope:
         def DEFAULT_FILTER_BACKENDS(self): return (
             'rest_framework.filters.DjangoFilterBackend',
         )
+        DEFAULT_RENDERER_CLASSES = ('rest_framework.renderers.YAMLRenderer',)
 
 Will result in
 
@@ -60,6 +60,9 @@ Will result in
     REST_FRAMEWORK = {
         'DEFAULT_FILTER_BACKENDS': (
             'rest_framework.filter.DjangoFilterBackend',
+        ),
+        'DEFAULT_RENDERER_CLASSES': (
+            'rest_framework.renderers.YAMLRenderer',
         )
     }
 

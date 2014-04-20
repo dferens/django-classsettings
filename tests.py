@@ -30,7 +30,7 @@ class SettingsTestCase(InjectorTestCase):
 
         new_module_vars = set(globals())
         self.assertEqual(new_module_vars - old_module_vars,
-                         set(('public_method',)))
+                         set(('public_method', 'some_field', 'some_class')))
 
     def test_related(self):
         class MySettings(Settings):
@@ -77,7 +77,8 @@ class ConfigTestCase(InjectorTestCase):
            class some_class(object): pass
 
         result_dict = globals()['MyConfig']
-        self.assertEqual(result_dict, {'public_method': 1})
+        self.assertEqual(result_dict, {'public_method': 1, 'some_field': 2,
+                                       'some_class': MyConfig['some_class']})
 
     def test_related(self):
         class MyConfig(Config):
