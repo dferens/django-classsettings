@@ -8,13 +8,17 @@ django-classsettings
 .. image:: https://coveralls.io/repos/dferens/django-classsettings/badge.png?branch=master
     :target: https://coveralls.io/r/dferens/django-classsettings?branch=master
 
-Adds ability to group Django settings with classes.
+Table of contents
+-----------------
 
-As many text editors and IDEs indexes code symbols, with such approach you can
+1. `Settings`_.
+2. `urlconf-s`_.
+
+Settings
+--------
+
+Settings class - adds ability to group Django settings with classes. As many text editors and IDEs indexes code symbols, with such approach you can
 easily navigate to any group and any line of your settings file.
-
-Settings class
---------------
 
 .. code-block:: python
 
@@ -37,11 +41,7 @@ Settings class
 With **Sublime Text 3** press :code:`Cmd+Shift+R` and type "THIRD".
 Same thing could be done with *TEMPLATE_CONTEXT_PROCESSORS*, *MIDDLEWARE_CLASSES* etc.
 
-
-Config class
-------------
-
-Injects dictionary of variables into module's scope:
+Config class - injects dictionary of variables into module's scope:
 
 .. code-block:: python
 
@@ -66,10 +66,7 @@ Will result in
         )
     }
 
-Decorators
-----------
-
-Some decorators may be found usefull:
+And some decorators may be found usefull:
 
 .. code-block:: python
 
@@ -93,3 +90,70 @@ Some decorators may be found usefull:
         # Will apply `through` callable to result
         @from_env(through=dj_database_url.parse)
         def DATABASE_URL(self): return 'sqlite://'
+
+
+urlconf-s
+---------
+
+Some tools for building urlconf-s.
+
+Native urlconf:
+
+.. code-block:: python
+
+    from django.conf.urls import patterns, url
+
+    import views
+
+    urlpatterns = patterns('',
+        url(r'^$', views.ProjectList.as_view(), name='projects_project_list'),
+
+        url(r'^create/$', views.ProjectCreate.as_view(), name='projects_project_create'),
+        url(r'^view/(?P<pk>\w+)/$', views.ProjectDetail.as_view(), name='projects_project_view'),
+        url(r'^update/(?P<pk>\w+)/$', views.ProjectUpdate.as_view(), name='projects_project_update'),
+        url(r'^delete/(?P<pk>\w+)/$', views.ProjectDelete.as_view(), name='projects_project_delete'),
+
+        url('^accounts/(?P<pk>\d+)/$', 'project.accounts.profile_info', name='users_info')
+        url('^accounts/edit/$', 'project.accounts.profile_edit', name='users_edit')
+    )
+
+is equivalent to
+
+.. code-block:: python
+
+    from classsettings.urls import Scope, url
+
+    import views
+
+    #
+    # Define url pattern, views or view name prefix:
+    #
+    # Views resolution:
+    #
+    #   some.module, 'string' => getattr(module, 'string')
+    #   'scope_str', 'string' => 'string'.format('scope_str', ...)
+    #
+    with Scope(regex='^', views=views, name='projects') as root:
+        #
+        # Strings are formatted with `str.format`:
+        #
+        #   value.format(value_of_parent_scope, **scope.context)
+        #
+        # Additional context variables can be defined and used with `{variable}`
+        with Scope(name='{}_project', pk=r'(?P<pk>\w+)') as project:
+            # Also supported
+            project['pk'] = r'(?P<pk>\w+)'
+
+            # For CBV `.as_view()` is called automatically
+            url('{}$', 'ProjectList', name='{}_list')  # url => '^$', name => 'projects_project_list' 
+            url('{}create/$', 'ProjectCreate', name='{}_create')
+            url('{}view/{pk}/$', 'ProjectDetail', name='{}_detail')
+            url('{}update/{pk}/$', 'ProjectUpdate', name='{}_update')
+            url('{}delete/{pk}/$', 'ProjectDelete', name='{}_delete')
+
+        with Scope(regex='{}account/', views='project.accounts', name='users',
+                   user_id=r'(?P<pk>\d+)'):
+            url('{}{user_id}?/$', '{}.profile_info', name='{}_info')
+            url('{}edit/$', '{}.profile_edit', name='{}_edit')
+
+    urlpatterns = root.urls
