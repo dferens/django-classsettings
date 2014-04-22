@@ -8,11 +8,15 @@ django-classsettings
 .. image:: https://coveralls.io/repos/dferens/django-classsettings/badge.png?branch=master
     :target: https://coveralls.io/r/dferens/django-classsettings?branch=master
 
-Table of contents
------------------
+1. `Requirements`_.
+2. `Settings`_.
+3. `urlconfs helpers`_.
 
-1. `Settings`_.
-2. `urlconf-s`_.
+Requirements
+------------
+
+- Python 2.6, 2.7, 3.2, 3.3
+- Django 1.4-1.6
 
 Settings
 --------
@@ -92,12 +96,13 @@ And some decorators may be found usefull:
         def DATABASE_URL(self): return 'sqlite://'
 
 
-urlconf-s
+urlconfs helpers
 ---------
 
-Some tools for building urlconf-s.
+.. _urlconfs:
 
-Native urlconf:
+
+Sample urlconf:
 
 .. code-block:: python
 
@@ -158,4 +163,4 @@ is equivalent to
 
     urlpatterns = root.urls
 
-For urls defined outside *Scope* object native django's url function is used.
+For urls defined outside *Scope object* native django's url function is used.
