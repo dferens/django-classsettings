@@ -8,8 +8,75 @@ from django.conf.urls import url as django_url
 from django.utils import six
 
 
-class Scope(object):
+class Context(object):
+    """
+    Dict-like object, can contain reference to parent context.
 
+    Keys seek order: own keys, parent context and raises KeyError if not found.
+    """
+    def __init__(self, parent=None, **variables):
+        self._parent = parent
+        self._own_context = variables
+
+    def __iter__(self):
+        return self._own_context.__iter__()
+
+    def __getitem__(self, key):
+        context = self
+        while context:
+            if key in context._own_context:
+                return context._own_context[key]
+
+            context = context.parent
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        self._own_context[key] = value
+
+    def __str__(self):
+        items = ', '.join("'%s': %s" % (k, self[k]) for k in self.keys())
+        return '<Context object {%s}>' % items
+
+    def __repr__(self):
+        return self.__str__()
+
+    def dict(self):
+        result, context = dict(), self
+        while context:
+            for k in context:
+                result.setdefault(k, context[k])
+
+            context = context.parent
+        return result
+
+    def keys(self):
+        result, context = list(), self
+        while context:
+            result.extend(k for k in context if k not in result)
+            context = context.parent
+        return result
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, value):
+        if value is None or isinstance(value, type(self)):
+            self._parent = value
+        else:
+            raise TypeError('Value "%s" is not "%s" instance' %
+                            (value, type(self).__name__))
+
+
+class Scope(object):
+    """
+    Allows urls defined with :func:`classsettings.urls.url` within scope use
+    it's variables for string substitutions with `{var_name}` and attribute
+    lookups for modules.
+    """
+
+    # Globally accessed object, not threadsafe at all
     __CURRENT = None
 
     @classmethod
@@ -31,8 +98,8 @@ class Scope(object):
         self._regex = regex
         self._view = view
         self._name = name
-        self._own_context = context_variables
-        self._parent = None
+        self._own_context = Context(None, **context_variables)
+        self.parent = None
         self.childs = []
 
     def __enter__(self):
@@ -60,24 +127,31 @@ class Scope(object):
         self.childs.append(scope_or_url)
 
         if isinstance(scope_or_url, type(self)):
-            scope_or_url._parent = self
+            scope_or_url.parent = self
 
     def _del_child(self, scope_or_url):
         self.childs.remove(scope_or_url)
 
         if isinstance(scope_or_url, type(self)):
-            scope_or_url._parent = None
+            scope_or_url.parent = None
 
     def _format_string(self, value, base):
         args = () if base is None else (base,)
         
         try:
-            return value.format(*args, **self.context)
-        except (IndexError, KeyError) as e:
-            raise ImproperlyConfigured({
-                IndexError: 'Could not format "%s", base value is None' % value,
-                KeyError: '"%s" context variable not found' % e.args[0]
-            }[type(e)])
+            return value.format(*args, **(self.context.dict()))
+        except (IndexError, KeyError, ValueError) as e:
+            if type(e) is IndexError:
+                msg = 'Could not format "%s", base value is None' % value
+            elif type(e) is KeyError:
+                msg = '"%s" context variable not found' % e.args[0]
+            elif type(e) is ValueError and e.args[0] == 'zero length field name in format':
+                msg = 'Positional argument specifiers ("{}") can be omitted ' \
+                      'on >=2.7 only, use "{0}" instead.'
+            else:
+                msg = None
+            
+            raise (ImproperlyConfigured(msg) if msg else e)
 
     def _resolve(self, regex, view, kwargs, name, prefix):
         url_scope = Scope(regex, view, name)
@@ -88,17 +162,16 @@ class Scope(object):
 
     @property
     def context(self):
-        result, scope = {}, self
-        while scope:
-            for key, value  in scope._own_context.iteritems():
-                result.setdefault(key, value)
-
-            scope = scope.parent
-        return result
+        return self._own_context
 
     @property
     def parent(self):
         return self._parent
+
+    @parent.setter
+    def parent(self, scope):
+        self._parent = scope
+        self._own_context.parent = scope._own_context if scope else None
 
     @property
     def regex(self):
@@ -159,6 +232,9 @@ class Scope(object):
         return tuple(self._urls_generator())
 
     def url(self, regex, view, kwargs=None, name=None, prefix=''):
+        """
+        Modifies url's url pattern view and name only.
+        """
         url_args = self._resolve(regex, view, kwargs, name, prefix)
         url_obj = django_url(*url_args)
         self._add_child(url_obj)
@@ -166,6 +242,11 @@ class Scope(object):
 
 
 def url(regex, view, kwargs=None, name=None, prefix=''):
+    """
+    Shortcut for ``url`` method of current scope.
+
+    Acts like native django's ``url`` if is defined outside scope.
+    """
     scope = Scope.get_current()
     url_args = (regex, view, kwargs, name, prefix)
     return scope.url(*url_args) if scope else django_url(*url_args)

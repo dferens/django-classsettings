@@ -1,14 +1,17 @@
 import os
+import sys
 import unittest
-from operator import attrgetter
 
 import mock
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.unittest import skipIf
 
 from classsettings import Settings, Config, from_env, utils
-from classsettings.urls import Scope, url
+from classsettings.urls import Context, Scope, url
 
+
+IS_ABOVE_26 = sys.version_info[0] > 2 or sys.version_info[1] > 6
 
 settings.configure()
 
@@ -191,11 +194,11 @@ class UrlsTestCase(unittest.TestCase):
         view = lambda request: 'response'
 
         with Scope(regex='r/') as prefixed_root:
-            with Scope(regex='{}child1/') as child1:
-                url('{}url1/', view)
+            with Scope(regex='{0}child1/') as child1:
+                url('{0}url1/', view)
 
             with Scope() as child2:
-                url('{}url2/', view)
+                url('{0}url2/', view)
 
             url('absolute', view)
 
@@ -205,9 +208,7 @@ class UrlsTestCase(unittest.TestCase):
             self.assertEqual(url_obj.regex.pattern, exp_url)
 
         with Scope() as nonprefixed_root:
-            with self.assertRaises(ImproperlyConfigured):
-                url('{}', view)
-
+            self.assertRaises(ImproperlyConfigured, url, '{0}', view)
             url('absolute', view)
 
         self.assertEqual(nonprefixed_root.urls[0].regex.pattern, 'absolute')
@@ -244,9 +245,9 @@ class UrlsTestCase(unittest.TestCase):
                 mock_import.return_value = views_module
 
                 with Scope(view='project.app.views'):
-                    url('test-url', '{}.view_callable')
+                    url('test-url', '{0}.view_callable')
                     url('test-url', view_callable)
-                    url('test-url', '{}.CBV')
+                    url('test-url', '{0}.CBV')
 
             url('test-url', CBV)
             url('test-url', CBV.as_view())
@@ -260,19 +261,18 @@ class UrlsTestCase(unittest.TestCase):
 
         with Scope(name='root') as root_named:
             with Scope() as child1:
-                url('test-url', view, name='{}_child1')
+                url('test-url', view, name='{0}_child1')
 
-            with Scope(name='{}_child2'):
-                url('test-url', view, name='{}_url')
+            with Scope(name='{0}_child2'):
+                url('test-url', view, name='{0}_url')
 
             url('test-url', view, name='absolute')
 
         expected_names = ['root_child1', 'root_child2_url', 'absolute']
         self.assertEqual([u.name for u in root_named.urls], expected_names)
 
-        with self.assertRaises(ImproperlyConfigured):
-            with Scope() as root_unnamed:
-                url('test-url', view, name='{}')
+        with Scope() as root_unnamed:
+            self.assertRaises(ImproperlyConfigured, url, 'test-url', view, name='{0}')
 
     def test_context_variables(self):
         view = lambda request: 'response'
@@ -303,6 +303,39 @@ class UrlsTestCase(unittest.TestCase):
 
         expected_urls = ['bazbar', 'bazxxx', 'foobar']
         self.assertEqual([u.regex.pattern for u in root.urls], expected_urls)
+
+    def test_full_resolution(self):
+        view = lambda request: 'response'
+
+        with Scope(regex='url') as root:
+            with Scope(name='name'):
+                with Scope(view=view):
+                    url('{0}', view, name='{0}')
+
+        self.assertEqual([u.regex.pattern for u in root.urls], ['url'])
+        self.assertEqual([u.callback for u in root.urls], [view])
+        self.assertEqual([u.name for u in root.urls], ['name'])
+
+    @skipIf(IS_ABOVE_26, '')
+    def test_str_format_under_27(self):
+        view = lambda request: 'response'
+
+        with Scope(regex='test') as root:
+            self.assertRaises(ImproperlyConfigured, url, '{}', view)
+
+    def test_context(self):
+        root = Context(one=1, two=2)
+        child = Context(root, one='child 1', three=3)
+        def parent_setter(this, new_parent): this.parent = new_parent
+        self.assertRaises(TypeError, parent_setter, child, dict())
+
+        self.assertTrue('one' in child.__str__())
+        self.assertTrue('one' in child.__repr__())
+        self.assertEqual(root['one'], 1)
+        self.assertEqual(child['one'], 'child 1')
+        self.assertEqual(child.dict(), dict(one='child 1', two=2, three=3))
+        self.assertEqual(set(child.keys()), set('one two three'.split()))
+        self.assertRaises(KeyError, child.__getitem__, 'not exists')
 
 if __name__ == '__main__':
     unittest.main()

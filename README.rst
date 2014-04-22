@@ -151,9 +151,11 @@ is equivalent to
             url('{}update/{pk}/$', 'ProjectUpdate', name='{}_update')
             url('{}delete/{pk}/$', 'ProjectDelete', name='{}_delete')
 
-        with Scope(regex='{}account/', views='project.accounts', name='users',
+        with Scope(regex='{}accounts/', views='project.accounts', name='users',
                    user_id=r'(?P<pk>\d+)'):
             url('{}{user_id}?/$', '{}.profile_info', name='{}_info')
             url('{}edit/$', '{}.profile_edit', name='{}_edit')
 
     urlpatterns = root.urls
+
+For urls defined outside *Scope* object native django's url function is used.
