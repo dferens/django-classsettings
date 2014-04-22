@@ -1,9 +1,16 @@
 import os
 import unittest
+from operator import attrgetter
 
+import mock
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from classsettings import Settings, Config, from_env, utils
+from classsettings.urls import Scope, url
+
+
+settings.configure()
 
 
 class InjectorTestCase(unittest.TestCase):
@@ -177,6 +184,125 @@ class UtilsTestCase(unittest.TestCase):
                      configurable_decorator(1, kwarg=2)(test_func)])
         self.assertEqual(len(funcs), 1)
 
+
+class UrlsTestCase(unittest.TestCase):
+
+    def test_url_resolution(self):
+        view = lambda request: 'response'
+
+        with Scope(regex='r/') as prefixed_root:
+            with Scope(regex='{}child1/') as child1:
+                url('{}url1/', view)
+
+            with Scope() as child2:
+                url('{}url2/', view)
+
+            url('absolute', view)
+
+        self.assertEqual(len(prefixed_root.urls), 3)
+        expected_urls = ('r/child1/url1/', 'r/url2/', 'absolute')
+        for url_obj, exp_url in zip(prefixed_root.urls, expected_urls):
+            self.assertEqual(url_obj.regex.pattern, exp_url)
+
+        with Scope() as nonprefixed_root:
+            with self.assertRaises(ImproperlyConfigured):
+                url('{}', view)
+
+            url('absolute', view)
+
+        self.assertEqual(nonprefixed_root.urls[0].regex.pattern, 'absolute')
+
+    def test_view_resolution(self):
+        
+        def modules_view(request):
+            return 'modules view'
+
+        def view_callable(request):
+            return 'callable view'
+
+        class CBV(object):
+            @staticmethod
+            def as_view():
+                def actual_view(request):
+                    return 'cbv view'
+
+                return actual_view
+
+        views_module = type('module', (), {})()
+        setattr(views_module, 'view_name', modules_view)
+        setattr(views_module, 'view_callable', view_callable)
+        setattr(views_module, 'CBV', CBV)
+
+        with Scope() as root:
+            with mock.patch('classsettings.urls.inspect.ismodule') as mock_is_module:
+                mock_is_module.return_value = True
+
+                with Scope(view=views_module):
+                    url('test-url', 'view_name')
+
+            with mock.patch('django.core.urlresolvers.import_module') as mock_import:
+                mock_import.return_value = views_module
+
+                with Scope(view='project.app.views'):
+                    url('test-url', '{}.view_callable')
+                    url('test-url', view_callable)
+                    url('test-url', '{}.CBV')
+
+            url('test-url', CBV)
+            url('test-url', CBV.as_view())
+
+        expected_views = ['modules view', 'callable view', 'callable view',
+                          'cbv view', 'cbv view', 'cbv view']
+        self.assertEqual([u.callback(None) for u in root.urls], expected_views)
+
+    def test_name_resolution(self):
+        view = lambda request: 'response'
+
+        with Scope(name='root') as root_named:
+            with Scope() as child1:
+                url('test-url', view, name='{}_child1')
+
+            with Scope(name='{}_child2'):
+                url('test-url', view, name='{}_url')
+
+            url('test-url', view, name='absolute')
+
+        expected_names = ['root_child1', 'root_child2_url', 'absolute']
+        self.assertEqual([u.name for u in root_named.urls], expected_names)
+
+        with self.assertRaises(ImproperlyConfigured):
+            with Scope() as root_unnamed:
+                url('test-url', view, name='{}')
+
+    def test_context_variables(self):
+        view = lambda request: 'response'
+
+        with Scope() as root:
+            with Scope(vasyan='foo') as child1:
+                self.assertEqual(child1['vasyan'], 'foo')
+
+                with Scope(tadasyan='bar') as child2:
+                    self.assertEqual(child2['vasyan'], 'foo')
+                    self.assertEqual(child2['tadasyan'], 'bar')
+
+                    with Scope(vasyan='baz') as child3:
+                        self.assertEqual(child3['tadasyan'], 'bar')
+                        self.assertEqual(child3['vasyan'], 'baz')
+
+                        url('{vasyan}{tadasyan}', view)
+                        child3['tadasyan'] = 'xxx'
+                        url('{vasyan}{tadasyan}', view)
+
+                    url('{vasyan}{tadasyan}', view)
+
+                self.assertRaises(KeyError, child1.__getitem__, 'tadasyan')
+                self.assertRaises(ImproperlyConfigured, url, '{tadasyan}', view)
+
+            self.assertRaises(KeyError, root.__getitem__, 'vasyan')
+            self.assertRaises(ImproperlyConfigured, url, '{vasyan}', view)
+
+        expected_urls = ['bazbar', 'bazxxx', 'foobar']
+        self.assertEqual([u.regex.pattern for u in root.urls], expected_urls)
 
 if __name__ == '__main__':
     unittest.main()

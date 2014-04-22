@@ -2,6 +2,7 @@
 Django
 
 # Testing
+mock
 coverage
 flake8
 tox
