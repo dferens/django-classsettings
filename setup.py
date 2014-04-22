@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'django-classsettings',
-    version = '1.0.1',
+    version = '1.0.2',
     author='Dmitriy Ferens',
     author_email='ferensdima@gmail.com',
     description = 'Adds ability to define Django settings with classes'
