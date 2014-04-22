@@ -8,6 +8,8 @@ django-classsettings
 .. image:: https://coveralls.io/repos/dferens/django-classsettings/badge.png?branch=master
     :target: https://coveralls.io/r/dferens/django-classsettings?branch=master
 
+Just a collection of Django settings helpers.
+
 1. `Requirements`_.
 2. `Settings`_.
 3. `urlconfs helpers`_.
@@ -97,7 +99,7 @@ And some decorators may be found usefull:
 
 
 urlconfs helpers
----------
+----------------
 
 .. _urlconfs:
 
