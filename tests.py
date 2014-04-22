@@ -316,6 +316,16 @@ class UrlsTestCase(unittest.TestCase):
         self.assertEqual([u.callback for u in root.urls], [view])
         self.assertEqual([u.name for u in root.urls], ['name'])
 
+    def test_context_passthrough(self):
+        with Scope(regex='a', view='b', name='c') as root:
+            with Scope():
+                with Scope():
+                    with Scope():
+                        url('{0}', '{0}', name='{0}')
+
+        u = root.urls[0]
+        self.assertTrue(u.regex.pattern == 'a' and u.callback == 'b' and u.name == 'c')
+
     @skipIf(IS_ABOVE_26, '')
     def test_str_format_under_27(self):
         view = lambda request: 'response'

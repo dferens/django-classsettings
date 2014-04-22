@@ -191,18 +191,21 @@ class Scope(object):
         view = self._view
 
         if self.parent:
-            if isinstance(self.parent.view, six.string_types):
-                if isinstance(self._view, six.string_types):
-                    view_path = self._format_string(self._view, self.parent.view)
-                    view = urlresolvers.get_callable(view_path)
-                else:
-                    view = urlresolvers.get_callable(self._view)
-            elif inspect.ismodule(self.parent.view):
-                if isinstance(self._view, six.string_types):
-                    view = getattr(self.parent.view, self._view)
+            if view is None:
+                view = self.parent.view
+            else:
+                if isinstance(self.parent.view, six.string_types):
+                    if isinstance(self._view, six.string_types):
+                        view_path = self._format_string(self._view, self.parent.view)
+                        view = urlresolvers.get_callable(view_path)
+                    else:
+                        view = urlresolvers.get_callable(self._view)
+                elif inspect.ismodule(self.parent.view):
+                    if isinstance(self._view, six.string_types):
+                        view = getattr(self.parent.view, self._view)
 
-        if inspect.isfunction(getattr(view, 'as_view', None)):
-            view = view.as_view()
+        as_view = getattr(view, 'as_view', None)
+        view = as_view() if callable(as_view) else view
 
         return view
 
